@@ -1,163 +1,114 @@
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Host, HostId, Device, Stream};
-use std::{io::{stdin, Write}, sync::{Arc, Mutex}};
 use anyhow::Result;
-use std::fs::File;
-
-// define new audio track ctructure
-struct AudioTrack {
-    bitrate: u32,
-    track: Vec<(f64, f64)>,
-}
-
-impl AudioTrack
-{
-    pub fn new(bitrate: u32) -> Self {
-        AudioTrack {
-            bitrate,
-            track: Vec::new(),
-        }
-    }
-    pub fn add_sample(&mut self, time: f64, value: f64) {
-        self.track.push((time, value));
-    }
-    pub fn get_track(&self) -> &Vec<(f64, f64)> {
-        &self.track
-    }
-    pub fn get_duration(self) -> f64 {
-        self.track.len() as f64 / self.bitrate as f64
-    }
-    pub fn get_min_max(self) -> (f64 , f64) {
-        let min = self.track.iter().map(|(_, value)| *value).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(0.0);
-        let max = self.track.iter().map(|(_, value)| *value).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(0.0);
-        (min, max)
-    }
-}
-
-fn main() -> Result<()> {
-    // define some initial variables
-    let avail_hosts: Vec<HostId> = cpal::available_hosts();
-    let mut input_line: String = String::new();
-
-    // start host selection prompt
-    println!("Please select a host to use:");
-    avail_hosts.iter().enumerate().for_each(| (ind, host_id)| {
-        println!("[{:#}] {:?}:", ind, host_id);
-        //     if let Ok(conf) = device.default_input_config() {
-        //         println!("  [{:#}-{:#}] {:?}:", host_ind, dev_ind, device.name());
-        //         println!("    Default input stream config:\n      {:?}", conf);
-        //     }
-        // });
-    });
-    // get user input
-    stdin().read_line(&mut input_line)?;
-    let input_id = input_line.trim().parse::<usize>()?;
-
-    println!("Selected host: {:?}", &avail_hosts[input_id]);
-    let host: Host = cpal::host_from_id(avail_hosts[input_id])?;
-    
-
-    // start device selection prompt
-    let mut avail_inputs: Vec<Device> = Vec::new();
-    println!("Please select an input device to use:");
-    for (ind, device) in host.input_devices()?.enumerate() {
-        println!("[{:#}] {:?}:", ind, device.name());
-        avail_inputs.push(device);
-    };
-
-    // get user input
-    input_line.clear();
-    stdin().read_line(&mut input_line)?;
-    let input_id = input_line.trim().parse::<usize>()?;
-    let input_device = avail_inputs.remove(input_id);
-
-    println!("Selected input device: {:?}", &input_device.name());
+use plotly::{common::Mode, Layout, Plot, Scatter};
+use core::f64;
+use std::{
+    io::{stdin, Write},
+};
+use tokio::time::{self, Duration};
+use timegrapher::audio::io as audioio;
+use timegrapher::signal::fft::lowpass_filter;
 
 
-    // get device configuration
-    let input_config = input_device.default_input_config()?;
-    println!("Default input stream config:\n{:?}", input_config);
+#[tokio::main]
+async fn main() -> Result<()> {
+    let cons = audioio::get_connectors()?;
+    // println!("Connectors are {:#?}", cons);
+
+    let mut audiostream =
+        audioio::AudioStreamBuilder::new(&cons[0], &"MacBook Pro Microphone".to_string())?
+            .build()?;
 
 
-    // start stream creation
-    // create output audio track
-    let audiotrack = Arc::new(Mutex::new(AudioTrack::new(input_config.sample_rate().0)));
-    let audiotrack_clone = Arc::clone(&audiotrack);
+    let track  = audiostream.get_track_by_duration(Duration::from_secs(4)).await;
 
-    // set error call back function
-    let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
+    //version with independant process \
+    // create file and the writer stream to file
+    // let auidiofile = File::create("test.txt").expect("Unable to create file");
+    // let mut writer = std::io::BufWriter::new(auidiofile);
+    // tokio::spawn(async move {
+    // let mut counter: u32 = 0;
+    // while let Some((time, value)) = audiostream.next().await {
+    //    writeln!(writer, "{}, {}", time, value).expect("Error writing data");
+    // }
+    // writer.flush().expect("Unable to flush");
+    // drop(audiostream);
+    // });
+    // // Simulate running for 5 seconds before exiting
+    // tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+    // println!("Audio track saved to test.txt");
 
-    let stream = match input_config.sample_format() {
-        cpal::SampleFormat::I8 => input_device.build_input_stream(
-            &input_config.into(),
-            move |data, _: &_| sample_collector::<i8>(data, &audiotrack_clone),
-            err_fn,
-            None,
-        )?,
-        cpal::SampleFormat::I16 => input_device.build_input_stream(
-            &input_config.into(),
-            move |data, _: &_| sample_collector::<i16>(data, &audiotrack_clone),
-            err_fn,
-            None,
-        )?,
-        cpal::SampleFormat::I32 => input_device.build_input_stream(
-            &input_config.into(),
-            move |data, _: &_| sample_collector::<i32>(data, &audiotrack_clone),
-            err_fn,
-            None,
-        )?,
-        cpal::SampleFormat::F32 => input_device.build_input_stream(
-            &input_config.into(),
-            move |data, _: &_| sample_collector::<f32>(data, &audiotrack_clone),
-            err_fn,
-            None,
-        )?,
-        sample_format => {
-            return Err(anyhow::Error::msg(format!(
-                "Unsupported sample format '{sample_format}'"
-            )))
-        }
-    };
+    // let x: Arc<Mutex<Vec<f64>>> = Arc::new(Mutex::new(Vec::new()));
+    // let y: Arc<Mutex<Vec<f64>>> = Arc::new(Mutex::new(Vec::new()));
 
-    // Start the stream
-    stream.play()?;
+    // let x_c = Arc::clone(&x);
+    // let y_c = Arc::clone(&y);
 
-    // Run for a certain duration to capture audio
-    std::thread::sleep(std::time::Duration::from_secs(5));
+    // let handle = tokio::spawn(async move {
+    //     let result = time::timeout(Duration::from_secs(5), async {
+    //         let mut x = x_c.lock().await;
+    //         let mut y = y_c.lock().await;
 
-    // Stop the stream
-    drop(stream);
+    //         // for _ in 0..100 {
+    //         //     match audiostream.next().await{
+    //         //         Some((time, value)) => {
+    //         //             x.push(time);
+    //         //             y.push(value);
+    //         //         },
+    //         //         None => break
+    //         //     }
+    //         // }
+    //         while let Some((time, value)) = audiostream.next().await {
+    //             x.push(time);
+    //             y.push(value);
+    //             // if counter % 5000 == 0 {
+    //             //     println!("on {:}", counter)
+    //             // }
+    //             // counter += 1;
+    //         }
 
-    // Print the audio track
-    let result = audiotrack.lock().unwrap();
-    let auidiofile = File::create("audiofile.txt")?;
-    let mut writer = std::io::BufWriter::new(auidiofile);
-    for (time, value) in result.get_track().iter() {
-        writeln!(writer, "{},{}", time, value)?;
-    }
-    writer.flush()?;
-    println!("Audio track saved to audiofile.txt");
+    //         drop(audiostream);
+    //     }).await;
 
+    //     match result {
+    //         Ok(_) => println!("Process completed within the timeout"),
+    //         Err(_) => println!("Process was interrupted after 5 seconds"),
+    //     }
+    // });
+
+    // // Wait for the spawned task to complete
+    // handle.await.unwrap();
+
+    // handling data
+    // let x = x.lock().await.to_vec();
+    // let y = y.lock().await.to_vec();
+
+    let br = track.samplerate.clone();
+    let x = track.get_time();
+    let y = lowpass_filter(track, 100.into());
+
+
+    // let min = y.iter().cloned().fold(f64::INFINITY, f64::min);
+    // let max = y.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+
+    // // normalising
+    // let mut yn: Vec<f64> = Vec::new();
+    // y.iter().for_each(|&yy| {
+    //     yn.push((yy - min) / (max - min));
+    //  });
+
+    let trace = Scatter::new(x, y).mode(Mode::Lines);
+    let layout = Layout::new()
+        .title("Dynamic Plot")
+        .x_axis(plotly::layout::Axis::new().title("Time (s)"))
+        .y_axis(plotly::layout::Axis::new().title("Amplitude"));
+
+    // Create a Plotly plot
+    let mut plot = Plot::new();
+    plot.add_trace(trace);
+    plot.set_layout(layout);
+
+
+    plot.show();
+                   
     Ok(())
-
-
-}
-
-
-
-
-fn sample_collector<T>(data: &[T], audiotrack: &Arc<Mutex<AudioTrack>>) 
-where
-    T: cpal::Sample + Into<f64>,
-{
-    let mut audiotrack = audiotrack.lock().unwrap();
-    let mut time: f64;
-    let mut value: f64;
-
-    for sample in data.iter() {
-        let (last_time, _) = *audiotrack.get_track().last().unwrap_or(&(0.0, 0.0));
-        time = last_time + 1.0 / audiotrack.bitrate as f64;
-        value = (*sample).into() as f64;
-        audiotrack.add_sample(time, value);
-    }
 }
