@@ -37,8 +37,8 @@ impl TimeGrapherUi {
             stop_btn: false,
             clear_btn: true,
             linedata: Arc::new(Mutex::new(Vec::new())),
-            y_min: "-1".to_string(),
-            y_max: "1".to_string(),
+            y_min: "-0.01".to_string(),
+            y_max: "0.01".to_string(),
         }
     }
 }
