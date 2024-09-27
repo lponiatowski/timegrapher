@@ -54,6 +54,13 @@ impl Connector {
         })
     }
 
+    pub fn list_device_names(&self) -> Option<Vec<String>>{
+        match self.devices.len(){
+            0 => None,
+            _ => Some(self.devices.keys().into_iter().map(|k| k.clone()).collect::<Vec<String>>())
+        }
+    }
+
     fn get_stream_conf(&self, name: &String) -> Result<(Device, SupportedStreamConfig)> {
         // let dev: Option<Device> = self.devices.remove(name);
         let dev: Option<Device> = self.devices.get(name).cloned();
@@ -196,7 +203,7 @@ impl AudioStreamBuilder {
 
         Ok(AudioStream {
             samplerate: self.samplerate,
-            stream: Box::pin(outputstream)
+            stream: Arc::new(Mutex::new(Box::pin(outputstream)))
         })
     }
 
@@ -208,7 +215,7 @@ impl AudioStreamBuilder {
 
 pub struct AudioStream {
     samplerate: f64,
-    stream: Pin<Box<dyn FuturStream<Item = (f64, f64)> + Send>>
+    stream: Arc<Mutex<Pin<Box<dyn FuturStream<Item = (f64, f64)> + Send>>>>
 }
 
 impl AudioStream {
@@ -216,16 +223,16 @@ impl AudioStream {
         self.samplerate.clone()
     }
 
-    pub async fn get_track_by_duration(self, duration: Duration) -> AudioTrack{
-        
-        let audiocopy = Arc::new(Mutex::new(self.stream));
+    pub async fn get_track_by_duration(&self, duration: Duration) -> AudioTrack{
+
+        let audiocopy: Arc<Mutex<Pin<Box<dyn FuturStream<Item = (f64, f64)> + Send>>>> = Arc::clone(&self.stream);
 
         let track: Arc<Mutex<Vec<(f64, f64)>>> = Arc::new(Mutex::new(Vec::new()));
         let track_c = Arc::clone(&track);
 
         let handle = tokio::spawn(async move {
 
-            let result = time::timeout(duration, async {
+            let _ = time::timeout(duration, async {
 
                 let mut stream = audiocopy.lock().await;                                                    
                 let mut track = track_c.lock().await;
@@ -236,10 +243,10 @@ impl AudioStream {
 
             }).await;
     
-            match result {
-                Ok(_) => println!("Process completed within the timeout"),
-                Err(_) => println!("Process was interrupted after 5 seconds"),
-            }
+            // match result {
+            //     Ok(_) => println!("Process completed within the timeout"),
+            //     Err(_) => println!("Process was interrupted after 5 seconds"),
+            // }
         });
     
         // Wait for the spawned task to complete
@@ -252,6 +259,10 @@ impl AudioStream {
             samplerate,
             track
         }
+    }
+
+    pub fn get_stream(&self) -> Arc<Mutex<Pin<Box<dyn FuturStream<Item = (f64, f64)> + Send>>>> {
+        Arc::clone(&self.stream)
     }
 }
 
