@@ -1,4 +1,5 @@
 use crate::audio::io::{AudioStreamBuilder, Connector};
+use crate::signal::utils;
 use crate::ui::extras;
 use eframe::egui::{emath::Vec2b, Align, ComboBox, Layout, Style, TextStyle, Visuals};
 use eframe::{egui, App};
@@ -114,12 +115,12 @@ impl App for TimeGrapherUi {
                                                                             ),
                                                                         )
                                                                         .await;
-                                                                    // println!("{:?}", &track.get_volume()[1..10]);
+                                                                    
+                                                                    // let track = utils::remove_mean(track);
                                                                     let mut data =
                                                                         data.lock().await;
                                                                     *data = track.track;
                                                                     drop(data);
-                                                                    println!("Data ready")
                                                                 }
                                                             }));
                                                     }
@@ -181,8 +182,9 @@ impl App for TimeGrapherUi {
                             // check if data is ready
                             if let Ok(data) = self.linedata.try_lock() {
                                 // transforme data into line
+                                let gain = self.settings.gain;
                                 let points: PlotPoints =
-                                    data.iter().map(|&(t, v)| [t, v]).collect();
+                                    data.iter().map(|&(t, v)| [t, gain*v]).collect();
                                 let line = Line::new(points);
 
                                 // set y axis bounds
@@ -219,31 +221,41 @@ impl App for TimeGrapherUi {
         // Settings
         let mut ytext = format!("{:.2}", self.settings.y_limits);
         let mut samplentext = format!("{:}", self.settings.sample_size);
+        let mut gaintext = format!("{:}", self.settings.gain);
 
         egui::Window::new("Settings")
             .open(&mut self.settings.is_open_mut())
             .show(ctx, |ui| {
-                ui.vertical(|ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("Y limits:       ");
+                ui.columns(2, |clo_ui| {
+                    clo_ui[0].vertical(|ui| {
+                        ui.label("Y limits:");
+                        ui.label("Sample duration:");
+                        ui.label("Gain:");
+                    });
+
+                    clo_ui[1].vertical(|ui| {
                         ui.add(
                             egui::TextEdit::singleline(&mut ytext)
                                 .hint_text("Simetric limit On Y axis")
                                 .desired_width(50.0),
                         );
-                    });
-                    ui.horizontal(|ui| {
-                        ui.label("Sample duration:");
                         ui.add(
                             egui::TextEdit::singleline(&mut samplentext)
                                 .hint_text("Simetric limit On Y axis")
                                 .desired_width(50.0),
                         );
+                        ui.add(
+                            egui::TextEdit::singleline(&mut gaintext)
+                                .hint_text("Input gain")
+                                .desired_width(50.0),
+                        );
                     });
+
                 });
             });
         self.settings.y_limits = extras::Settings::parse_f64(ytext);
         self.settings.sample_size = extras::Settings::parse_u64(samplentext);
+        self.settings.gain = extras::Settings::parse_f64(gaintext);
 
 
         // Trigger repaint at regular intervals to keep the plot updating
