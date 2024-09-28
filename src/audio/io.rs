@@ -286,4 +286,11 @@ impl AudioTrack{
     pub fn get_samole_rate(&self) -> f64 {
         self.samplerate
     }
+
+    pub fn from_rate_track(samplerate: f64, track: Vec<(f64, f64)>) -> Self {
+        AudioTrack{
+            samplerate,
+            track
+        }
+    }
 }
