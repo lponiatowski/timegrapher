@@ -1,4 +1,5 @@
 use crate::audio::io::{AudioStreamBuilder, Connector};
+use crate::ui::extras;
 use eframe::egui::{emath::Vec2b, Align, ComboBox, Layout, Style, TextStyle, Visuals};
 use eframe::{egui, App};
 use egui_plot::{Line, Plot, PlotBounds, PlotPoints};
@@ -7,6 +8,7 @@ use std::time::Duration;
 use tokio::{spawn, sync::Mutex, task::JoinHandle};
 
 pub struct TimeGrapherUi {
+    process_error: extras::ProcessError,
     host: Connector,
     device: String,
     device_list: Vec<String>,
@@ -28,6 +30,7 @@ impl TimeGrapherUi {
             .unwrap_or(vec!["Devices not found!".to_string()]);
 
         Self {
+            process_error: extras::ProcessError::default(),
             host: host,
             device: devices[0].clone(),
             device_list: devices,
@@ -96,28 +99,49 @@ impl App for TimeGrapherUi {
                                             "Creating audio stream on device {:}:{:}",
                                             &self.host, &self.device
                                         );
-                                        let audiostream =
-                                            AudioStreamBuilder::new(&self.host, &self.device)
-                                                .unwrap()
-                                                .build()
-                                                .unwrap();
-                                        let data = Arc::clone(&self.linedata);
-                                        let duration = self.audiolength.clone() as u64;
-                                        self.audio_taskhanle = Some(spawn(async move {
-                                            println!("Sampling initiated");
-                                            loop {
-                                                let track = audiostream
-                                                    .get_track_by_duration(Duration::from_secs(
-                                                        duration,
-                                                    ))
-                                                    .await;
-                                                // println!("{:?}", &track.get_volume()[1..10]);
-                                                let mut data = data.lock().await;
-                                                *data = track.track;
-                                                drop(data);
-                                                println!("Data ready")
+
+                                        match AudioStreamBuilder::new(&self.host, &self.device) {
+                                            Ok(streambuilder) => {
+                                                match streambuilder.build() {
+                                                    Ok(audiostream) => {
+                                                        let data = Arc::clone(&self.linedata);
+                                                        let duration =
+                                                            self.audiolength.clone() as u64;
+                                                        self.audio_taskhanle =
+                                                            Some(spawn(async move {
+                                                                println!("Sampling initiated");
+                                                                loop {
+                                                                    let track = audiostream
+                                                                        .get_track_by_duration(
+                                                                            Duration::from_secs(
+                                                                                duration,
+                                                                            ),
+                                                                        )
+                                                                        .await;
+                                                                    // println!("{:?}", &track.get_volume()[1..10]);
+                                                                    let mut data =
+                                                                        data.lock().await;
+                                                                    *data = track.track;
+                                                                    drop(data);
+                                                                    println!("Data ready")
+                                                                }
+                                                            }));
+                                                    }
+                                                    Err(e) => {
+                                                        self.process_error.rais(format!(
+                                                                "Error While building stream: {:}",
+                                                                e
+                                                            ));
+                                                    }
+                                                }
                                             }
-                                        }));
+                                            Err(e) => {
+                                                // rais error
+                                                self.process_error.rais(
+                                                    format!("Error While building stream: {:}", e),
+                                                );
+                                            }
+                                        };
                                     };
                                 }
 
@@ -198,6 +222,17 @@ impl App for TimeGrapherUi {
                 );
             });
         });
+
+        let message = self.process_error.message().to_owned();
+        egui::Window::new("Process Error")
+            .open(&mut self.process_error.is_error_mut())
+            .show(ctx, |ui| {
+                ui.label(message);
+            });
+
+        if !self.process_error.is_error() {
+            self.process_error.close();
+        }
 
         // Trigger repaint at regular intervals to keep the plot updating
         ctx.request_repaint();
