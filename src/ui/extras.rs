@@ -39,6 +39,7 @@ pub struct Settings {
     is_open: bool,
     pub sample_size: u64,
     pub y_limits: f64, 
+    pub gain: f64,
 }
 
 impl Default for Settings {
@@ -47,7 +48,8 @@ impl Default for Settings {
         Self {
             is_open: false,
             sample_size: 3 as u64,
-            y_limits: 1.0.into()
+            y_limits: 1.0.into(),
+            gain: 1.into()
         }
     }
 }

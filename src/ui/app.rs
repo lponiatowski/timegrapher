@@ -116,7 +116,8 @@ impl App for TimeGrapherUi {
                                                                         )
                                                                         .await;
                                                                     
-                                                                    // let track = utils::remove_mean(track);
+                                                                    let track = utils::remove_mean(track);
+                                                                    let track = utils::cutt_off(track, 0.005);
                                                                     let mut data =
                                                                         data.lock().await;
                                                                     *data = track.track;
