@@ -13,13 +13,11 @@ pub struct TimeGrapherUi {
     device: String,
     device_list: Vec<String>,
     audio_taskhanle: Option<JoinHandle<()>>,
-    audiolength: usize,
     start_btn: bool,
     stop_btn: bool,
     clear_btn: bool,
     linedata: Arc<Mutex<Vec<(f64, f64)>>>,
-    y_min: String,
-    y_max: String,
+    settings: extras::Settings,
 }
 
 impl TimeGrapherUi {
@@ -35,13 +33,11 @@ impl TimeGrapherUi {
             device: devices[0].clone(),
             device_list: devices,
             audio_taskhanle: None,
-            audiolength: 3,
             start_btn: true,
             stop_btn: false,
             clear_btn: true,
             linedata: Arc::new(Mutex::new(Vec::new())),
-            y_min: "-0.01".to_string(),
-            y_max: "0.01".to_string(),
+            settings: extras::Settings::default(),
         }
     }
 }
@@ -106,7 +102,7 @@ impl App for TimeGrapherUi {
                                                     Ok(audiostream) => {
                                                         let data = Arc::clone(&self.linedata);
                                                         let duration =
-                                                            self.audiolength.clone() as u64;
+                                                            self.settings.sample_size.clone() as u64;
                                                         self.audio_taskhanle =
                                                             Some(spawn(async move {
                                                                 println!("Sampling initiated");
@@ -129,22 +125,22 @@ impl App for TimeGrapherUi {
                                                     }
                                                     Err(e) => {
                                                         self.process_error.rais(format!(
-                                                                "Error While building stream: {:}",
-                                                                e
-                                                            ));
+                                                            "Error While building stream: {:}",
+                                                            e
+                                                        ));
                                                     }
                                                 }
                                             }
                                             Err(e) => {
                                                 // rais error
-                                                self.process_error.rais(
-                                                    format!("Error While building stream: {:}", e),
-                                                );
+                                                self.process_error.rais(format!(
+                                                    "Error While building stream: {:}",
+                                                    e
+                                                ));
                                             }
                                         };
                                     };
                                 }
-
                                 if ui
                                     .add_enabled(self.stop_btn, egui::Button::new("Stop sampling"))
                                     .clicked()
@@ -158,12 +154,18 @@ impl App for TimeGrapherUi {
                                     }
                                 }
                             });
-                            if ui
-                                .add_enabled(self.clear_btn, egui::Button::new("Clear data"))
-                                .clicked()
-                            {
-                                self.linedata = Arc::new(Mutex::new(Vec::new()));
-                            }
+
+                            ui.horizontal(|ui| {
+                                if ui
+                                    .add_enabled(self.clear_btn, egui::Button::new("Clear data"))
+                                    .clicked()
+                                {
+                                    self.linedata = Arc::new(Mutex::new(Vec::new()));
+                                }
+                                if ui.add(egui::Button::new("Settings")).clicked(){
+                                    self.settings.open();
+                                }
+                            });
                         });
                     },
                 );
@@ -184,8 +186,8 @@ impl App for TimeGrapherUi {
                                 let line = Line::new(points);
 
                                 // set y axis bounds
-                                let y_min: f64 = self.y_min.clone().parse().unwrap_or(-1.);
-                                let y_max: f64 = self.y_max.clone().parse().unwrap_or(1.);
+                                let y_min: f64 = -1. * self.settings.y_limits;
+                                let y_max: f64 = self.settings.y_limits;
                                 let bounds = PlotBounds::from_min_max([0., y_min], [0., y_max]);
                                 Plot::new("Audio signal")
                                     .view_aspect(2.0)
@@ -195,34 +197,14 @@ impl App for TimeGrapherUi {
                                         plot_ui.line(line)
                                     });
                             }
-                            ui.add_space(10.0);
-
-                            ui.horizontal(|ui| {
-                                ui.label("Set Y limits:");
-
-                                ui.add_space(20.);
-
-                                ui.label("min: ");
-                                ui.add(
-                                    egui::TextEdit::singleline(&mut self.y_min)
-                                        .hint_text("Minimum Volume")
-                                        .desired_width(20.0),
-                                );
-
-                                ui.add_space(20.);
-                                ui.label("max: ");
-                                ui.add(
-                                    egui::TextEdit::singleline(&mut self.y_max)
-                                        .hint_text("Maximum Volume")
-                                        .desired_width(20.0),
-                                );
-                            });
                         });
                     },
                 );
             });
         });
 
+        // // Dialogues
+        // Error
         let message = self.process_error.message().to_owned();
         egui::Window::new("Process Error")
             .open(&mut self.process_error.is_error_mut())
@@ -233,6 +215,36 @@ impl App for TimeGrapherUi {
         if !self.process_error.is_error() {
             self.process_error.close();
         }
+
+        // Settings
+        let mut ytext = format!("{:.2}", self.settings.y_limits);
+        let mut samplentext = format!("{:}", self.settings.sample_size);
+
+        egui::Window::new("Settings")
+            .open(&mut self.settings.is_open_mut())
+            .show(ctx, |ui| {
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Y limits:       ");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut ytext)
+                                .hint_text("Simetric limit On Y axis")
+                                .desired_width(50.0),
+                        );
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Sample duration:");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut samplentext)
+                                .hint_text("Simetric limit On Y axis")
+                                .desired_width(50.0),
+                        );
+                    });
+                });
+            });
+        self.settings.y_limits = extras::Settings::parse_f64(ytext);
+        self.settings.sample_size = extras::Settings::parse_u64(samplentext);
+
 
         // Trigger repaint at regular intervals to keep the plot updating
         ctx.request_repaint();
