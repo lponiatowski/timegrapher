@@ -282,4 +282,8 @@ impl AudioTrack{
         let data = self.track.clone();
         data.iter().map(|(_, v)| *v).collect()
     }
+
+    pub fn get_samole_rate(&self) -> f64 {
+        self.samplerate
+    }
 }
