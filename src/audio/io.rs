@@ -223,8 +223,7 @@ impl AudioStream {
         self.samplerate.clone()
     }
 
-    pub async fn get_track_by_duration(&self, duration: u64) -> AudioTrack{
-        let duration: Duration = Duration::from_secs(5);
+    pub async fn get_track_by_duration(&self, duration: f64) -> AudioTrack{
         let audiocopy: Arc<Mutex<Pin<Box<dyn FuturStream<Item = (f64, f64)> + Send>>>> = Arc::clone(&self.stream);
 
         let track: Arc<Mutex<Vec<(f64, f64)>>> = Arc::new(Mutex::new(Vec::new()));
@@ -236,14 +235,14 @@ impl AudioStream {
             let mut track = track_c.lock().await;
             
             while let Some((time, value)) = stream.next().await {
+                // set limit to the time
+                if time > duration {
+                    break;
+                }
                 track.push((time, value));
             }
 
         });
-    
-        // Wait for the spawned task to complete
-        tokio::time::sleep(duration).await;
-        recorder.abort();
 
         let samplerate = self.samplerate.clone();
         let track: Vec<(f64,f64)> = track.lock().await.to_vec();
