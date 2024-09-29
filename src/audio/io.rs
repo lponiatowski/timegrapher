@@ -275,7 +275,7 @@ impl AudioTrack{
         data.iter().map(|(_, v)| *v).collect()
     }
 
-    pub fn get_samole_rate(&self) -> f64 {
+    pub fn get_sample_rate(&self) -> f64 {
         self.samplerate
     }
 
