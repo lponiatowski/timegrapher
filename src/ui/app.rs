@@ -118,6 +118,8 @@ impl App for TimeGrapherUi {
                                                                         data.lock().await;
                                                                     *data = track.track;
                                                                     drop(data);
+                                                                    // println!("data");
+                                                                    // panic!();
                                                                 }
                                                             }));
                                                     }

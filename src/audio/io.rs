@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use plotly::common::ColorScale;
 use core::fmt;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -228,21 +229,24 @@ impl AudioStream {
 
         let track: Arc<Mutex<Vec<(f64, f64)>>> = Arc::new(Mutex::new(Vec::new()));
         let track_c = Arc::clone(&track);
+        let sr = self.samplerate;
 
-        let recorder = tokio::spawn(async move {
+        let _ = tokio::spawn(async move {
 
             let mut stream = audiocopy.lock().await;                                                    
             let mut track = track_c.lock().await;
             
+            let mut local_time: f64 = 0.0.into();
             while let Some((time, value)) = stream.next().await {
-                // set limit to the time
-                if time > duration {
+                // set up braking 
+                local_time += 1.0 / sr;
+                if local_time > duration {
                     break;
                 }
                 track.push((time, value));
             }
 
-        });
+        }).await;
 
         let samplerate = self.samplerate.clone();
         let track: Vec<(f64,f64)> = track.lock().await.to_vec();
