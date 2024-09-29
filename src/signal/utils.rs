@@ -1,5 +1,18 @@
 use crate::audio::io::AudioTrack;
 
+
+
+pub fn apply_gain(track: AudioTrack, gain: f64) -> AudioTrack {
+    let rate: f64 = track.get_sample_rate();
+    let time: Vec<f64> = track.get_time().to_owned();
+    let vol: Vec<f64> = track.get_volume().to_owned();
+
+    let vol = vol.iter().map(|&v| gain*v).collect::<Vec<f64>>();
+    let track = time.iter().cloned().zip(vol.iter().cloned()).collect::<Vec<(f64, f64)>>();
+
+    AudioTrack::from_rate_track(rate, track)
+}
+
 pub fn remove_mean(track: AudioTrack) -> AudioTrack {
     let rate: f64 = track.get_sample_rate();
     let time: Vec<f64> = track.get_time().to_owned();

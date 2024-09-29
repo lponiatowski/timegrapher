@@ -262,13 +262,30 @@ impl AudioStream {
     }
 }
 
-
+#[derive(Debug, Clone)]
 pub struct AudioTrack{
     pub samplerate: f64,
     pub track: Vec<(f64, f64)>,
 }
 
+impl Default for AudioTrack {
+    fn default() -> Self {
+        Self {
+            samplerate: 0.0.into(),
+            track: Vec::new()
+        }
+    }
+}
+
 impl AudioTrack{
+
+    pub fn new() -> Self {
+        Self {
+            samplerate: 0.0.into(),
+            track: Vec::new()
+        }
+    }
+
     pub fn get_time(&self) -> Vec<f64>{
         let data = self.track.clone();
         data.iter().map(|(t, _)| *t).collect()

@@ -1,12 +1,17 @@
-use crate::audio::io::{AudioStreamBuilder, Connector};
+use crate::audio::io::{AudioStreamBuilder, AudioTrack, Connector};
 use crate::signal::utils;
 use crate::ui::extras;
 use eframe::egui::{emath::Vec2b, Align, ComboBox, Layout, Style, TextStyle, Visuals};
 use eframe::{egui, App};
 use egui_plot::{Line, Plot, PlotBounds, PlotPoints};
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::{spawn, sync::Mutex, task::JoinHandle};
+
+#[derive(PartialEq)]
+pub enum ShowData {
+    Raw,
+    Processed,
+}
 
 pub struct TimeGrapherUi {
     process_error: extras::ProcessError,
@@ -17,7 +22,9 @@ pub struct TimeGrapherUi {
     start_btn: bool,
     stop_btn: bool,
     clear_btn: bool,
-    linedata: Arc<Mutex<Vec<(f64, f64)>>>,
+    show_data_type: ShowData,
+    rawdata: Arc<Mutex<AudioTrack>>,
+    data: Arc<Mutex<AudioTrack>>,
     settings: extras::Settings,
 }
 
@@ -37,7 +44,9 @@ impl TimeGrapherUi {
             start_btn: true,
             stop_btn: false,
             clear_btn: true,
-            linedata: Arc::new(Mutex::new(Vec::new())),
+            show_data_type: ShowData::Processed,
+            rawdata: Arc::new(Mutex::new(AudioTrack::new())),
+            data: Arc::new(Mutex::new(AudioTrack::new())),
             settings: extras::Settings::default(),
         }
     }
@@ -101,25 +110,46 @@ impl App for TimeGrapherUi {
                                             Ok(streambuilder) => {
                                                 match streambuilder.build() {
                                                     Ok(audiostream) => {
-                                                        let data = Arc::clone(&self.linedata);
-                                                        let duration =
-                                                            self.settings.sample_size.clone();
+                                                        // temp data storage
+                                                        let rawdata = Arc::clone(&self.rawdata);
+                                                        let data = Arc::clone(&self.data);
+
+                                                        // controlls
+                                                        let duration = self.settings.sample_size;
+                                                        let gain = self.settings.gain;
+                                                        let cutoff = self.settings.cutoff;
+                                                        let romeve_mean =
+                                                            self.settings.use_mean_subtraction;
+
+                                                        // executor
                                                         self.audio_taskhanle =
                                                             Some(spawn(async move {
                                                                 println!("Sampling initiated");
                                                                 loop {
-                                                                    let track = audiostream
-                                                                        .get_track_by_duration(duration)
+                                                                    let mut track = audiostream
+                                                                        .get_track_by_duration(
+                                                                            duration,
+                                                                        )
                                                                         .await;
-                                                                    
-                                                                    let track = utils::remove_mean(track);
-                                                                    let track = utils::cutt_off(track, 0.005);
+
+                                                                    let mut rawdata =
+                                                                        rawdata.lock().await;
+                                                                    *rawdata = track.clone();
+                                                                    track = utils::apply_gain(
+                                                                        track, gain,
+                                                                    );
+                                                                    if romeve_mean {
+                                                                        track = utils::remove_mean(
+                                                                            track,
+                                                                        );
+                                                                    }
+                                                                    track = utils::cutt_off(
+                                                                        track, cutoff,
+                                                                    );
                                                                     let mut data =
                                                                         data.lock().await;
-                                                                    *data = track.track;
+                                                                    *data = track;
                                                                     drop(data);
-                                                                    // println!("data");
-                                                                    // panic!();
                                                                 }
                                                             }));
                                                     }
@@ -160,9 +190,10 @@ impl App for TimeGrapherUi {
                                     .add_enabled(self.clear_btn, egui::Button::new("Clear data"))
                                     .clicked()
                                 {
-                                    self.linedata = Arc::new(Mutex::new(Vec::new()));
+                                    self.rawdata = Arc::new(Mutex::new(AudioTrack::new()));
+                                    self.data = Arc::new(Mutex::new(AudioTrack::new()));
                                 }
-                                if ui.add(egui::Button::new("Settings")).clicked(){
+                                if ui.add(egui::Button::new("Settings")).clicked() {
                                     self.settings.open();
                                 }
                             });
@@ -179,11 +210,30 @@ impl App for TimeGrapherUi {
                             ui.add_space(20.0);
 
                             // check if data is ready
-                            if let Ok(data) = self.linedata.try_lock() {
+
+                            let data = match self.show_data_type {
+                                ShowData::Raw => {
+                                    // here goes code for the unprocessd data
+                                    if let Ok(data) = self.rawdata.try_lock() {
+                                        Some(data)
+                                    } else {
+                                        None
+                                    }
+                                }
+                                ShowData::Processed => {
+                                    // here goes code for the processed data
+                                    if let Ok(data) = self.data.try_lock() {
+                                        Some(data)
+                                    } else {
+                                        None
+                                    }
+                                }
+                            };
+
+                            if let Some(data) = data {
                                 // transforme data into line
-                                let gain = self.settings.gain;
                                 let points: PlotPoints =
-                                    data.iter().map(|&(t, v)| [t, gain*v]).collect();
+                                    data.track.iter().map(|&(t, v)| [t, v]).collect();
                                 let line = Line::new(points);
 
                                 // set y axis bounds
@@ -197,7 +247,18 @@ impl App for TimeGrapherUi {
                                         plot_ui.set_auto_bounds(Vec2b::new(true, false));
                                         plot_ui.line(line)
                                     });
-                            }
+                            };
+
+                            ui.horizontal(|ui| {
+                                ui.add_space(10.0);
+                                ui.radio_value(&mut self.show_data_type, ShowData::Raw, "Raw");
+                                ui.add_space(10.0);
+                                ui.radio_value(
+                                    &mut self.show_data_type,
+                                    ShowData::Processed,
+                                    "Processed",
+                                );
+                            });
                         });
                     },
                 );
@@ -221,6 +282,8 @@ impl App for TimeGrapherUi {
         let mut ytext = format!("{:.2}", self.settings.y_limits);
         let mut samplentext = format!("{:.2}", self.settings.sample_size);
         let mut gaintext = format!("{:.2}", self.settings.gain);
+        let mut cutofftext = format!("{:.5}", self.settings.cutoff);
+        let mut use_mean_sub = self.settings.use_mean_subtraction;
 
         egui::Window::new("Settings")
             .open(&mut self.settings.is_open_mut())
@@ -228,8 +291,14 @@ impl App for TimeGrapherUi {
                 ui.columns(2, |clo_ui| {
                     clo_ui[0].vertical(|ui| {
                         ui.label("Y limits:");
+                        ui.add_space(3.0);
                         ui.label("Sample duration:");
+                        ui.add_space(3.0);
                         ui.label("Gain:");
+                        ui.add_space(3.0);
+                        ui.label("Signal cutoff");
+                        ui.add_space(3.0);
+                        ui.label("Use mean subtraction")
                     });
 
                     clo_ui[1].vertical(|ui| {
@@ -248,14 +317,19 @@ impl App for TimeGrapherUi {
                                 .hint_text("Input gain")
                                 .desired_width(50.0),
                         );
+                        ui.add(
+                            egui::TextEdit::singleline(&mut cutofftext)
+                                .hint_text("Signal cutoff")
+                                .desired_width(50.0),
+                        );
+                        ui.add(egui::Checkbox::new(&mut use_mean_sub, ""));
                     });
-
                 });
             });
         self.settings.y_limits = extras::Settings::parse_f64(ytext);
         self.settings.sample_size = extras::Settings::parse_f64(samplentext);
         self.settings.gain = extras::Settings::parse_f64(gaintext);
-
+        self.settings.cutoff = extras::Settings::parse_f64(cutofftext);
 
         // Trigger repaint at regular intervals to keep the plot updating
         ctx.request_repaint();
