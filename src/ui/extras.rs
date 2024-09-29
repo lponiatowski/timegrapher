@@ -49,11 +49,11 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             is_open: false,
-            sample_size: 10.0.into(),
-            y_limits: 1.0.into(),
-            gain: 1.into(),
+            sample_size: 5.0.into(),
+            y_limits: 0.2.into(),
+            gain: 10.0.into(),
             use_mean_subtraction: false,
-            cutoff: 0.0.into()
+            cutoff: 0.02.into()
         }
     }
 }

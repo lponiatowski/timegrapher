@@ -143,9 +143,17 @@ impl App for TimeGrapherUi {
                                                                             track,
                                                                         );
                                                                     }
+
+                                                                    // track = utils::apply_diff(track);
+                                                                    // track = utils::sliding_mean(track, 100);
+                                                                    track = utils::sliding_max(
+                                                                        track, 300,
+                                                                    );
                                                                     track = utils::cutt_off(
                                                                         track, cutoff,
                                                                     );
+                                                                    track = utils::abs(track);
+
                                                                     let mut data =
                                                                         data.lock().await;
                                                                     *data = track;
@@ -241,7 +249,7 @@ impl App for TimeGrapherUi {
                                 let y_max: f64 = self.settings.y_limits;
                                 let bounds = PlotBounds::from_min_max([0., y_min], [0., y_max]);
                                 Plot::new("Audio signal")
-                                    .view_aspect(2.0)
+                                    .view_aspect(3.0)
                                     .show(ui, |plot_ui| {
                                         plot_ui.set_plot_bounds(bounds);
                                         plot_ui.set_auto_bounds(Vec2b::new(true, false));
@@ -259,6 +267,22 @@ impl App for TimeGrapherUi {
                                     "Processed",
                                 );
                             });
+
+                            ui.add_space(20.);
+
+                            // transforme data into line
+                            let data = vec![(1.,1.),(2.,2.),(3.,3.)];
+                            let points: PlotPoints =
+                                data.iter().map(|&(t, v)| [t, v]).collect();
+                            let line = Line::new(points);
+                            Plot::new("Timegrapher")
+                                .view_aspect(3.0)
+                                .show(ui, |plot_ui| {
+                                    plot_ui.set_auto_bounds(Vec2b::new(true, true));
+                                    plot_ui.line(line)
+                                });
+
+                            ui.add_space(20.);
                         });
                     },
                 );
