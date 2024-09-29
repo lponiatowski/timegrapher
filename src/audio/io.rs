@@ -223,34 +223,27 @@ impl AudioStream {
         self.samplerate.clone()
     }
 
-    pub async fn get_track_by_duration(&self, duration: Duration) -> AudioTrack{
-
+    pub async fn get_track_by_duration(&self, duration: u64) -> AudioTrack{
+        let duration: Duration = Duration::from_secs(5);
         let audiocopy: Arc<Mutex<Pin<Box<dyn FuturStream<Item = (f64, f64)> + Send>>>> = Arc::clone(&self.stream);
 
         let track: Arc<Mutex<Vec<(f64, f64)>>> = Arc::new(Mutex::new(Vec::new()));
         let track_c = Arc::clone(&track);
 
-        let handle = tokio::spawn(async move {
+        let recorder = tokio::spawn(async move {
 
-            let _ = time::timeout(duration, async {
+            let mut stream = audiocopy.lock().await;                                                    
+            let mut track = track_c.lock().await;
+            
+            while let Some((time, value)) = stream.next().await {
+                track.push((time, value));
+            }
 
-                let mut stream = audiocopy.lock().await;                                                    
-                let mut track = track_c.lock().await;
-                
-                while let Some((time, value)) = stream.next().await {
-                    track.push((time, value));
-                }
-
-            }).await;
-    
-            // match result {
-            //     Ok(_) => println!("Process completed within the timeout"),
-            //     Err(_) => println!("Process was interrupted after 5 seconds"),
-            // }
         });
     
         // Wait for the spawned task to complete
-        handle.await.unwrap();
+        tokio::time::sleep(duration).await;
+        recorder.abort();
 
         let samplerate = self.samplerate.clone();
         let track: Vec<(f64,f64)> = track.lock().await.to_vec();
