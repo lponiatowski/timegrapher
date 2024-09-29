@@ -103,17 +103,13 @@ impl App for TimeGrapherUi {
                                                     Ok(audiostream) => {
                                                         let data = Arc::clone(&self.linedata);
                                                         let duration =
-                                                            self.settings.sample_size.clone() as u64;
+                                                            self.settings.sample_size.clone();
                                                         self.audio_taskhanle =
                                                             Some(spawn(async move {
                                                                 println!("Sampling initiated");
                                                                 loop {
                                                                     let track = audiostream
-                                                                        .get_track_by_duration(
-                                                                            Duration::from_secs(
-                                                                                duration,
-                                                                            ),
-                                                                        )
+                                                                        .get_track_by_duration(duration)
                                                                         .await;
                                                                     
                                                                     let track = utils::remove_mean(track);
@@ -221,8 +217,8 @@ impl App for TimeGrapherUi {
 
         // Settings
         let mut ytext = format!("{:.2}", self.settings.y_limits);
-        let mut samplentext = format!("{:}", self.settings.sample_size);
-        let mut gaintext = format!("{:}", self.settings.gain);
+        let mut samplentext = format!("{:.2}", self.settings.sample_size);
+        let mut gaintext = format!("{:.2}", self.settings.gain);
 
         egui::Window::new("Settings")
             .open(&mut self.settings.is_open_mut())
@@ -255,7 +251,7 @@ impl App for TimeGrapherUi {
                 });
             });
         self.settings.y_limits = extras::Settings::parse_f64(ytext);
-        self.settings.sample_size = extras::Settings::parse_u64(samplentext);
+        self.settings.sample_size = extras::Settings::parse_f64(samplentext);
         self.settings.gain = extras::Settings::parse_f64(gaintext);
 
 

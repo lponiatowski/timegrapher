@@ -37,9 +37,11 @@ impl ProcessError {
 
 pub struct Settings {
     is_open: bool,
-    pub sample_size: u64,
+    pub sample_size: f64,
     pub y_limits: f64, 
     pub gain: f64,
+    pub use_mean_subtraction: bool,
+    pub cutoff: f64
 }
 
 impl Default for Settings {
@@ -47,9 +49,11 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             is_open: false,
-            sample_size: 3 as u64,
+            sample_size: 3.0.into(),
             y_limits: 1.0.into(),
-            gain: 1.into()
+            gain: 1.into(),
+            use_mean_subtraction: false,
+            cutoff: 0.0.into()
         }
     }
 }
