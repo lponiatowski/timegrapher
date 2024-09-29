@@ -1,7 +1,7 @@
 use crate::audio::io::AudioTrack;
 
 pub fn remove_mean(track: AudioTrack) -> AudioTrack {
-    let rate: f64 = track.get_samole_rate();
+    let rate: f64 = track.get_sample_rate();
     let time: Vec<f64> = track.get_time().to_owned();
     let vol: Vec<f64> = track.get_volume().to_owned();
 
@@ -57,7 +57,7 @@ pub fn remove_mean(track: AudioTrack) -> AudioTrack {
 }
 
 pub fn cutt_off(track: AudioTrack, cutoff: f64) -> AudioTrack {
-    let rate = track.get_samole_rate();
+    let rate = track.get_sample_rate();
     let time = track.get_time().to_owned();
     let vol = track.get_volume().to_owned();
 
