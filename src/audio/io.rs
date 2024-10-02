@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context, Result};
-use plotly::common::ColorScale;
 use core::fmt;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -13,7 +12,7 @@ use std::{
     collections::HashMap
 };
 use tokio::{
-    time::{self, Duration},
+    spawn,
     sync::{mpsc, Mutex},
 };
 use futures::stream::{self, Stream as FuturStream, StreamExt};
@@ -231,7 +230,7 @@ impl AudioStream {
         let track_c = Arc::clone(&track);
         let sr = self.samplerate;
 
-        let _ = tokio::spawn(async move {
+        let _ = spawn(async move {
 
             let mut stream = audiocopy.lock().await;                                                    
             let mut track = track_c.lock().await;

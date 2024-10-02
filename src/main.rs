@@ -1,6 +1,6 @@
 use anyhow::Result;
 use eframe;
-use eframe::egui::{self, Vec2};
+use eframe::egui;
 // use plotly::{common::Mode, Layout, Plot, Scatter};
 use timegrapher::audio::io as audioio;
 use timegrapher::ui::app;

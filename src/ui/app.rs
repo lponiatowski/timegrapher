@@ -1,7 +1,9 @@
 use crate::audio::io::{AudioStreamBuilder, AudioTrack, Connector};
 use crate::signal::utils;
 use crate::ui::extras;
-use eframe::egui::{emath::Vec2b, Align, ComboBox, Layout, Style, TextStyle, Visuals};
+use crate::ui::defs::*;
+
+use eframe::egui::{emath::Vec2b, Align, ComboBox, Layout, Style, Visuals};
 use eframe::{egui, App};
 use egui_plot::{Line, Plot, PlotBounds, PlotPoints};
 use std::sync::Arc;
@@ -14,7 +16,7 @@ pub enum ShowData {
 }
 
 pub struct TimeGrapherUi {
-    process_error: extras::ProcessError,
+    process_error: extras::NewError,
     host: Connector,
     device: String,
     device_list: Vec<String>,
@@ -25,7 +27,9 @@ pub struct TimeGrapherUi {
     show_data_type: ShowData,
     rawdata: Arc<Mutex<AudioTrack>>,
     data: Arc<Mutex<AudioTrack>>,
-    settings: extras::Settings,
+    last_data: AudioTrack,
+    audio_settings: extras::AudioSettings,
+    plot_settings: extras::PlotSettings
 }
 
 impl TimeGrapherUi {
@@ -36,7 +40,7 @@ impl TimeGrapherUi {
             .unwrap_or(vec!["Devices not found!".to_string()]);
 
         Self {
-            process_error: extras::ProcessError::default(),
+            process_error: extras::NewError::default(),
             host: host,
             device: devices[0].clone(),
             device_list: devices,
@@ -47,7 +51,9 @@ impl TimeGrapherUi {
             show_data_type: ShowData::Processed,
             rawdata: Arc::new(Mutex::new(AudioTrack::new())),
             data: Arc::new(Mutex::new(AudioTrack::new())),
-            settings: extras::Settings::default(),
+            last_data: AudioTrack::new(),
+            audio_settings: extras::AudioSettings::default(),
+            plot_settings: extras::PlotSettings::default(),
         }
     }
 }
@@ -115,11 +121,11 @@ impl App for TimeGrapherUi {
                                                         let data = Arc::clone(&self.data);
 
                                                         // controlls
-                                                        let duration = self.settings.sample_size;
-                                                        let gain = self.settings.gain;
-                                                        let cutoff = self.settings.cutoff;
+                                                        let duration = self.audio_settings.sample_size.get_value().clone();
+                                                        let gain = self.audio_settings.gain.get_value().clone();
+                                                        let cutoff = self.audio_settings.cutoff.get_value().clone();
                                                         let romeve_mean =
-                                                            self.settings.use_mean_subtraction;
+                                                            self.audio_settings.use_mean_subtraction.get_value().clone();
 
                                                         // executor
                                                         self.audio_taskhanle =
@@ -201,8 +207,11 @@ impl App for TimeGrapherUi {
                                     self.rawdata = Arc::new(Mutex::new(AudioTrack::new()));
                                     self.data = Arc::new(Mutex::new(AudioTrack::new()));
                                 }
-                                if ui.add(egui::Button::new("Settings")).clicked() {
-                                    self.settings.open();
+                                if ui.add(egui::Button::new("Audio Settings")).clicked() {
+                                    self.audio_settings.open();
+                                }
+                                if ui.add(egui::Button::new("Plot Settings")).clicked() {
+                                    self.plot_settings.open();
                                 }
                             });
                         });
@@ -223,39 +232,39 @@ impl App for TimeGrapherUi {
                                 ShowData::Raw => {
                                     // here goes code for the unprocessd data
                                     if let Ok(data) = self.rawdata.try_lock() {
-                                        Some(data)
+                                        data.to_owned()
                                     } else {
-                                        None
+                                        self.last_data.clone()
                                     }
                                 }
                                 ShowData::Processed => {
                                     // here goes code for the processed data
                                     if let Ok(data) = self.data.try_lock() {
-                                        Some(data)
+                                        data.to_owned()
                                     } else {
-                                        None
+                                        self.last_data.clone()
                                     }
                                 }
                             };
 
-                            if let Some(data) = data {
-                                // transforme data into line
-                                let points: PlotPoints =
-                                    data.track.iter().map(|&(t, v)| [t, v]).collect();
-                                let line = Line::new(points);
+                            // transforme data into line
+                            let points: PlotPoints =
+                                data.track.iter().map(|&(t, v)| [t, v]).collect();
+                            let line = Line::new(points);
+                            // save for later 
+                            self.last_data = data;
 
-                                // set y axis bounds
-                                let y_min: f64 = -1. * self.settings.y_limits;
-                                let y_max: f64 = self.settings.y_limits;
-                                let bounds = PlotBounds::from_min_max([0., y_min], [0., y_max]);
-                                Plot::new("Audio signal")
-                                    .view_aspect(3.0)
-                                    .show(ui, |plot_ui| {
-                                        plot_ui.set_plot_bounds(bounds);
-                                        plot_ui.set_auto_bounds(Vec2b::new(true, false));
-                                        plot_ui.line(line)
-                                    });
-                            };
+                            // set y axis bounds
+                            let y_min: f64 = -1. * self.plot_settings.y_limit.get_value().clone();
+                            let y_max: f64 = self.plot_settings.y_limit.get_value().clone();
+                            let bounds = PlotBounds::from_min_max([0., y_min], [0., y_max]);
+                            Plot::new("Audio signal")
+                                .view_aspect(3.0)
+                                .show(ui, |plot_ui| {
+                                    plot_ui.set_plot_bounds(bounds);
+                                    plot_ui.set_auto_bounds(Vec2b::new(true, false));
+                                    plot_ui.line(line)
+                                });
 
                             ui.horizontal(|ui| {
                                 ui.add_space(10.0);
@@ -291,7 +300,7 @@ impl App for TimeGrapherUi {
 
         // // Dialogues
         // Error
-        let message = self.process_error.message().to_owned();
+        let message = self.process_error.get_message().to_owned();
         egui::Window::new("Process Error")
             .open(&mut self.process_error.is_error_mut())
             .show(ctx, |ui| {
@@ -303,19 +312,15 @@ impl App for TimeGrapherUi {
         }
 
         // Settings
-        let mut ytext = format!("{:.2}", self.settings.y_limits);
-        let mut samplentext = format!("{:.2}", self.settings.sample_size);
-        let mut gaintext = format!("{:.2}", self.settings.gain);
-        let mut cutofftext = format!("{:.5}", self.settings.cutoff);
-        let mut use_mean_sub = self.settings.use_mean_subtraction;
-
-        egui::Window::new("Settings")
-            .open(&mut self.settings.is_open_mut())
+        let mut samplentext = format!("{:.2}", self.audio_settings.sample_size.get_value());
+        let mut gaintext = format!("{:.2}", self.audio_settings.gain.get_value());
+        let mut cutofftext = format!("{:.5}", self.audio_settings.cutoff.get_value());
+        let mut use_mean_sub = self.audio_settings.use_mean_subtraction.get_value().clone();
+        egui::Window::new("Audio Settings")
+            .open(&mut self.audio_settings.is_open_mut())
             .show(ctx, |ui| {
                 ui.columns(2, |clo_ui| {
                     clo_ui[0].vertical(|ui| {
-                        ui.label("Y limits:");
-                        ui.add_space(3.0);
                         ui.label("Sample duration:");
                         ui.add_space(3.0);
                         ui.label("Gain:");
@@ -326,11 +331,6 @@ impl App for TimeGrapherUi {
                     });
 
                     clo_ui[1].vertical(|ui| {
-                        ui.add(
-                            egui::TextEdit::singleline(&mut ytext)
-                                .hint_text("Simetric limit On Y axis")
-                                .desired_width(50.0),
-                        );
                         ui.add(
                             egui::TextEdit::singleline(&mut samplentext)
                                 .hint_text("Simetric limit On Y axis")
@@ -350,10 +350,31 @@ impl App for TimeGrapherUi {
                     });
                 });
             });
-        self.settings.y_limits = extras::Settings::parse_f64(ytext);
-        self.settings.sample_size = extras::Settings::parse_f64(samplentext);
-        self.settings.gain = extras::Settings::parse_f64(gaintext);
-        self.settings.cutoff = extras::Settings::parse_f64(cutofftext);
+
+        self.audio_settings.sample_size.parse(samplentext);
+        self.audio_settings.gain.parse(gaintext);
+        self.audio_settings.cutoff.parse(cutofftext);
+
+
+        let mut ytext = format!("{:.2}", self.plot_settings.y_limit.get_value());
+        egui::Window::new("Plot Settings")
+            .open(&mut self.plot_settings.is_open_mut())
+            .show(ctx, |ui| {
+                ui.columns(2, |clo_ui| {
+                    clo_ui[0].vertical(|ui| {
+                        ui.label("Y limits:");
+                    });
+
+                    clo_ui[1].vertical(|ui| {
+                        ui.add(
+                            egui::TextEdit::singleline(&mut ytext)
+                                .hint_text("Simetric limit On Y axis")
+                                .desired_width(50.0),
+                        );
+                    });
+                });
+            });
+        self.plot_settings.y_limit.parse(ytext);
 
         // Trigger repaint at regular intervals to keep the plot updating
         ctx.request_repaint();
