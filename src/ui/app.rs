@@ -2,6 +2,8 @@ use crate::audio::io::{AudioStreamBuilder, AudioTrack, Connector};
 use crate::signal::utils;
 use crate::ui::extras;
 use crate::ui::defs::*;
+use crate::ui::executor;
+use crate::signal::speexdsp;
 
 use eframe::egui::{emath::Vec2b, Align, ComboBox, Layout, Style, Visuals};
 use eframe::{egui, App};

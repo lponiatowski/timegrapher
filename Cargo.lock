@@ -3423,6 +3423,7 @@ dependencies = [
  "eframe",
  "egui_plot",
  "futures",
+ "libc",
  "plotly",
  "rustfft",
  "tokio",
