@@ -261,7 +261,6 @@ impl AudioStream {
 
         let track: Arc<Mutex<Vec<(f64, f64)>>> = Arc::new(Mutex::new(Vec::new()));
         let track_c = Arc::clone(&track);
-        let sr = self.samplerate();
 
         let _ = spawn(async move {
 

@@ -68,8 +68,9 @@ pub struct Denoiser {
     state: *mut libc::c_void,
 }
 
+// Speex is thread unsafe so no Send !!
 // Implement Send for Denoiser
-unsafe impl Send for Denoiser {}
+// unsafe impl Send for Denoiser {}
 
 impl Denoiser {
     // Initialize the denoiser
