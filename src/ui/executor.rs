@@ -46,6 +46,7 @@ pub fn spawn_executor(aust: AudioStream, ctl: ExecutorCTL) -> Option<JoinHandle<
                 // track = utils::abs(track);
                 let mut frame: Vec<f32> = track.get_volume().iter().map(|&v| v as f32).collect();
                 speex.process(&mut frame);
+                track.update_volume(frame);
 
                 let mut data = ctl.data.lock().await;
                 *data = track;
