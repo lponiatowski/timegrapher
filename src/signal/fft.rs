@@ -1,5 +1,5 @@
 use rustfft::{FftPlanner, num_complex::Complex};
-use crate::audio::io::AudioTrack;
+use crate::audio::track::AudioTrack;
 
 
 pub fn lowpass_filter(track: AudioTrack, cutoff_freq: f64) -> Vec<f64> {

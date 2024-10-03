@@ -1,15 +1,15 @@
-use crate::audio::io::{AudioStreamBuilder, AudioTrack, Connector};
-use crate::signal::utils;
+use crate::audio::io::{AudioStreamBuilder, Connector};
+use crate::audio::track::AudioTrack;
 use crate::ui::extras;
 use crate::ui::defs::*;
-use crate::ui::executor;
-use crate::signal::speexdsp;
+use crate::ui::executor::{spawn_executor, ExecutorCTL};
+
 
 use eframe::egui::{emath::Vec2b, Align, ComboBox, Layout, Style, Visuals};
 use eframe::{egui, App};
 use egui_plot::{Line, Plot, PlotBounds, PlotPoints};
 use std::sync::Arc;
-use tokio::{spawn, sync::Mutex, task::JoinHandle};
+use tokio::{sync::Mutex, task::JoinHandle};
 
 #[derive(PartialEq)]
 pub enum ShowData {
@@ -118,56 +118,17 @@ impl App for TimeGrapherUi {
                                             Ok(streambuilder) => {
                                                 match streambuilder.build() {
                                                     Ok(audiostream) => {
-                                                        // temp data storage
-                                                        let rawdata = Arc::clone(&self.rawdata);
-                                                        let data = Arc::clone(&self.data);
-
-                                                        // controlls
-                                                        let duration = self.audio_settings.sample_size.get_value().clone();
-                                                        let gain = self.audio_settings.gain.get_value().clone();
-                                                        let cutoff = self.audio_settings.cutoff.get_value().clone();
-                                                        let romeve_mean =
-                                                            self.audio_settings.use_mean_subtraction.get_value().clone();
-
                                                         // executor
-                                                        self.audio_taskhanle =
-                                                            Some(spawn(async move {
-                                                                println!("Sampling initiated");
-                                                                loop {
-                                                                    let mut track = audiostream
-                                                                        .get_track_by_duration(
-                                                                            duration,
-                                                                        )
-                                                                        .await;
-
-                                                                    let mut rawdata =
-                                                                        rawdata.lock().await;
-                                                                    *rawdata = track.clone();
-                                                                    track = utils::apply_gain(
-                                                                        track, gain,
-                                                                    );
-                                                                    if romeve_mean {
-                                                                        track = utils::remove_mean(
-                                                                            track,
-                                                                        );
-                                                                    }
-
-                                                                    // track = utils::apply_diff(track);
-                                                                    // track = utils::sliding_mean(track, 100);
-                                                                    track = utils::sliding_max(
-                                                                        track, 300,
-                                                                    );
-                                                                    track = utils::cutt_off(
-                                                                        track, cutoff,
-                                                                    );
-                                                                    track = utils::abs(track);
-
-                                                                    let mut data =
-                                                                        data.lock().await;
-                                                                    *data = track;
-                                                                    drop(data);
-                                                                }
-                                                            }));
+                                                        self.audio_taskhanle = spawn_executor(audiostream,
+                                                            ExecutorCTL{
+                                                                rawdata: Arc::clone(&self.rawdata),
+                                                                data: Arc::clone(&self.data),
+                                                                duration: self.audio_settings.sample_size.get_value().clone(),
+                                                                gain: self.audio_settings.gain.get_value().clone(),
+                                                                cutoff: self.audio_settings.cutoff.get_value().clone(),
+                                                                romeve_mean: self.audio_settings.use_mean_subtraction.get_value().clone()
+                                                            }
+                                                        );      
                                                     }
                                                     Err(e) => {
                                                         self.process_error.rais(format!(

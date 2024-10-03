@@ -17,7 +17,7 @@ use tokio::{
 };
 use futures::stream::{self, Stream as FuturStream, StreamExt};
 use std::pin::Pin;
-
+use crate::audio::track::AudioTrack;
 
 pub fn get_connectors() -> Result<Vec<Connector>> {
     // get available hosts
@@ -219,8 +219,8 @@ pub struct AudioStream {
 }
 
 impl AudioStream {
-    pub fn samplerate(self) -> f64 {
-        self.samplerate.clone()
+    pub fn samplerate(&self) -> f64 {
+        self.samplerate
     }
 
     pub async fn get_track_by_duration(&self, duration: f64) -> AudioTrack{
@@ -228,7 +228,7 @@ impl AudioStream {
 
         let track: Arc<Mutex<Vec<(f64, f64)>>> = Arc::new(Mutex::new(Vec::new()));
         let track_c = Arc::clone(&track);
-        let sr = self.samplerate;
+        let sr = self.samplerate();
 
         let _ = spawn(async move {
 
@@ -247,7 +247,41 @@ impl AudioStream {
 
         }).await;
 
-        let samplerate = self.samplerate.clone();
+        let samplerate = self.samplerate();
+        let track: Vec<(f64,f64)> = track.lock().await.to_vec();
+
+        AudioTrack{
+            samplerate,
+            track
+        }
+    }
+
+    pub async fn get_track_by_framesize(&self, frame_size: i64) -> AudioTrack{
+        let audiocopy: Arc<Mutex<Pin<Box<dyn FuturStream<Item = (f64, f64)> + Send>>>> = Arc::clone(&self.stream);
+
+        let track: Arc<Mutex<Vec<(f64, f64)>>> = Arc::new(Mutex::new(Vec::new()));
+        let track_c = Arc::clone(&track);
+        let sr = self.samplerate();
+
+        let _ = spawn(async move {
+
+            let mut stream = audiocopy.lock().await;                                                    
+            let mut track = track_c.lock().await;
+            
+            let mut current_size: i64 = 0;
+            while let Some((time, value)) = stream.next().await {
+                track.push((time, value));
+                // set up braking 
+                current_size += 1;
+                if current_size == frame_size{
+                    break; 
+                }
+
+            }
+
+        }).await;
+
+        let samplerate = self.samplerate();
         let track: Vec<(f64,f64)> = track.lock().await.to_vec();
 
         AudioTrack{
@@ -258,51 +292,5 @@ impl AudioStream {
 
     pub fn get_stream(&self) -> Arc<Mutex<Pin<Box<dyn FuturStream<Item = (f64, f64)> + Send>>>> {
         Arc::clone(&self.stream)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct AudioTrack{
-    pub samplerate: f64,
-    pub track: Vec<(f64, f64)>,
-}
-
-impl Default for AudioTrack {
-    fn default() -> Self {
-        Self {
-            samplerate: 0.0.into(),
-            track: Vec::new()
-        }
-    }
-}
-
-impl AudioTrack{
-
-    pub fn new() -> Self {
-        Self {
-            samplerate: 0.0.into(),
-            track: Vec::new()
-        }
-    }
-
-    pub fn get_time(&self) -> Vec<f64>{
-        let data = self.track.clone();
-        data.iter().map(|(t, _)| *t).collect()
-    }
-
-    pub fn get_volume(&self) -> Vec<f64> {
-        let data = self.track.clone();
-        data.iter().map(|(_, v)| *v).collect()
-    }
-
-    pub fn get_sample_rate(&self) -> f64 {
-        self.samplerate
-    }
-
-    pub fn from_rate_track(samplerate: f64, track: Vec<(f64, f64)>) -> Self {
-        AudioTrack{
-            samplerate,
-            track
-        }
     }
 }

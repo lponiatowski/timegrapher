@@ -2,8 +2,9 @@ use std::default::Default;
 use std::fmt::Debug;
 use std::str::FromStr;
 
-
 // Define Trear of Parsible
+
+#[allow(dead_code)]
 pub trait ParseFilter: FromStr + Default {
     fn filter(c: char) -> bool;
 }
@@ -52,6 +53,7 @@ impl ParseFilter for bool {
 }
 
 // Define trait for individual Add Setting
+#[allow(dead_code)]
 pub trait AppSetting<T>: Default + Debug + Clone where
 T: ParseFilter + Debug + Clone,
  {
@@ -100,6 +102,8 @@ where T: ParseFilter + Debug + Clone,
 
 
 // Define traits for the Collection Off app settings
+
+#[allow(dead_code)]
 pub trait AppSettingCollection: Default + Debug + Clone {
     fn is_open(&self) -> &bool;
 

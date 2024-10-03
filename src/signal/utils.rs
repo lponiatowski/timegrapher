@@ -1,4 +1,4 @@
-use crate::audio::io::AudioTrack;
+use crate::audio::track::AudioTrack;
 
 pub fn apply_gain(track: AudioTrack, gain: f64) -> AudioTrack {
     let rate: f64 = track.get_sample_rate();

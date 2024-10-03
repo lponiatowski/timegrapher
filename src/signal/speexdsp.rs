@@ -14,38 +14,44 @@ mod ffi {
 
 #[derive(Clone, Copy, Debug)]
 #[repr(i32)]
-pub enum ControlConst {
+pub enum ControlSet {
     SetDenoise = 0,
-    GetDenoise = 1,
     SetAgc = 2,
-    GetAgc = 3,
     SetVad = 4,
-    GetVad = 5,
     SetAgcLevel = 6,
-    GetAgcLevel = 7,
     SetDereverb = 8,
-    GetDereverb = 9,
     SetDereverbLevel = 10,
-    GetDereverbLevel = 11,
     SetDereverbDecay = 12,
-    GetDereverbDecay = 13,
     SetProbStart = 14,
-    GetProbStart = 15,
     SetProbContinue = 16,
-    GetProbContinue = 17,
     SetNoiseSuppress = 18,
-    GetNoiseSuppress = 19,
     SetEchoSuppress = 20,
-    GetEchoSuppress = 21,
     SetEchoSuppressActive = 22,
-    GetEchoSuppressActive = 23,
     SetEchoState = 24,
-    GetEchoState = 25,
     SetAgcIncrement = 26,
-    GetAgcIncrement = 27,
     SetAgcDecrement = 28,
-    GetAgcDecrement = 29,
     SetAgcMaxGain = 30,
+    SetAgcTarget = 46,
+}
+
+#[derive(Clone, Copy, Debug)]
+#[repr(i32)]
+pub enum ControlGet {
+    GetDenoise = 1,
+    GetAgc = 3,
+    GetVad = 5,
+    GetAgcLevel = 7,
+    GetDereverb = 9,
+    GetDereverbLevel = 11,
+    GetDereverbDecay = 13,
+    GetProbStart = 15,
+    GetProbContinue = 17,
+    GetNoiseSuppress = 19,
+    GetEchoSuppress = 21,
+    GetEchoSuppressActive = 23,
+    GetEchoState = 25,
+    GetAgcIncrement = 27,
+    GetAgcDecrement = 29,
     GetAgcMaxGain = 31,
     GetAgcLoudness = 33,
     GetAgcGain = 35,
@@ -54,14 +60,16 @@ pub enum ControlConst {
     GetNoisePsdSize = 41,
     GetNoisePsd = 43,
     GetProb = 45,
-    SetAgcTarget = 46,
     GetAgcTarget = 47,
 }
 
-
+#[derive(Debug, Clone)]
 pub struct Denoiser {
     state: *mut libc::c_void,
 }
+
+// Implement Send for Denoiser
+unsafe impl Send for Denoiser {}
 
 impl Denoiser {
     // Initialize the denoiser
@@ -79,12 +87,21 @@ impl Denoiser {
         }
     }
 
-    pub fn set_ctl(&self, request: ControlConst, value: i32) -> i32 {
+    pub fn set_ctl(self, request: ControlSet, value: i32) -> Self {
+        let mut value = value;
+        unsafe {
+            ffi::speex_preprocess_ctl(self.state, request as i32, &mut value as *mut _ as *mut libc::c_void);
+        }
+        self
+    }
+
+    pub fn get_ctl(&self, request: ControlSet, value: i32) -> i32 {
         let mut value = value;
         unsafe {
             ffi::speex_preprocess_ctl(self.state, request as i32, &mut value as *mut _ as *mut libc::c_void)
         }
     }
+    
 }
 
 impl Drop for Denoiser {
