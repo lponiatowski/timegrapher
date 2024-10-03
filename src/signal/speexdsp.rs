@@ -14,53 +14,53 @@ mod ffi {
 
 #[derive(Clone, Copy, Debug)]
 #[repr(i32)]
-pub enum ControlSet {
-    SetDenoise = 0,
-    SetAgc = 2,
-    SetVad = 4,
-    SetAgcLevel = 6,
-    SetDereverb = 8,
-    SetDereverbLevel = 10,
-    SetDereverbDecay = 12,
-    SetProbStart = 14,
-    SetProbContinue = 16,
-    SetNoiseSuppress = 18,
-    SetEchoSuppress = 20,
-    SetEchoSuppressActive = 22,
-    SetEchoState = 24,
-    SetAgcIncrement = 26,
-    SetAgcDecrement = 28,
-    SetAgcMaxGain = 30,
-    SetAgcTarget = 46,
+pub enum SetControll {
+    Denoise = 0,
+    Agc = 2,
+    Vad = 4,
+    AgcLevel = 6,
+    Dereverb = 8,
+    DereverbLevel = 10,
+    DereverbDecay = 12,
+    ProbStart = 14,
+    ProbContinue = 16,
+    NoiseSuppress = 18,
+    EchoSuppress = 20,
+    EchoSuppressActive = 22,
+    EchoState = 24,
+    AgcIncrement = 26,
+    AgcDecrement = 28,
+    AgcMaxGain = 30,
+    AgcTarget = 46,
 }
 
 #[derive(Clone, Copy, Debug)]
 #[repr(i32)]
-pub enum ControlGet {
-    GetDenoise = 1,
-    GetAgc = 3,
-    GetVad = 5,
-    GetAgcLevel = 7,
-    GetDereverb = 9,
-    GetDereverbLevel = 11,
-    GetDereverbDecay = 13,
-    GetProbStart = 15,
-    GetProbContinue = 17,
-    GetNoiseSuppress = 19,
-    GetEchoSuppress = 21,
-    GetEchoSuppressActive = 23,
-    GetEchoState = 25,
-    GetAgcIncrement = 27,
-    GetAgcDecrement = 29,
-    GetAgcMaxGain = 31,
-    GetAgcLoudness = 33,
-    GetAgcGain = 35,
-    GetPsdSize = 37,
-    GetPsd = 39,
-    GetNoisePsdSize = 41,
-    GetNoisePsd = 43,
-    GetProb = 45,
-    GetAgcTarget = 47,
+pub enum GetControll {
+    Denoise = 1,
+    Agc = 3,
+    Vad = 5,
+    AgcLevel = 7,
+    Dereverb = 9,
+    DereverbLevel = 11,
+    DereverbDecay = 13,
+    ProbStart = 15,
+    ProbContinue = 17,
+    NoiseSuppress = 19,
+    EchoSuppress = 21,
+    EchoSuppressActive = 23,
+    EchoState = 25,
+    AgcIncrement = 27,
+    AgcDecrement = 29,
+    AgcMaxGain = 31,
+    AgcLoudness = 33,
+    AgcGain = 35,
+    PsdSize = 37,
+    Psd = 39,
+    NoisePsdSize = 41,
+    NoisePsd = 43,
+    Prob = 45,
+    AgcTarget = 47,
 }
 
 #[derive(Debug, Clone)]
@@ -88,7 +88,7 @@ impl Denoiser {
         }
     }
 
-    pub fn set_ctl(self, request: ControlSet, value: i32) -> Self {
+    pub fn set_ctl(self, request: SetControll, value: i32) -> Self {
         let mut value = value;
         unsafe {
             ffi::speex_preprocess_ctl(self.state, request as i32, &mut value as *mut _ as *mut libc::c_void);
@@ -96,7 +96,7 @@ impl Denoiser {
         self
     }
 
-    pub fn get_ctl(&self, request: ControlSet, value: i32) -> i32 {
+    pub fn get_ctl(&self, request: GetControll, value: i32) -> i32 {
         let mut value = value;
         unsafe {
             ffi::speex_preprocess_ctl(self.state, request as i32, &mut value as *mut _ as *mut libc::c_void)
