@@ -61,6 +61,7 @@ T: ParseFilter + Debug + Clone,
     fn parse(&mut self, str: String);
     fn get_value(&self) -> &T;
     fn get_value_mut(&mut self) -> &mut T;
+    fn update_value(&mut self, value: T);
 }
 
 // create structure of type Setting that implements AppSetting trait
@@ -97,6 +98,10 @@ where T: ParseFilter + Debug + Clone,
 
     fn get_value_mut(&mut self) -> &mut T {
         &mut self.value
+    }
+
+    fn update_value(&mut self, value: T) {
+        self.value = value;
     }
 }
 
