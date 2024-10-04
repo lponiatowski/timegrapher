@@ -15,23 +15,40 @@ mod ffi {
 #[derive(Clone, Copy, Debug)]
 #[repr(i32)]
 pub enum SetControll {
+    // Denoiser state
     Denoise = 0,
+    //  Automatic Gain Control state
     Agc = 2,
+    //  Voice Activity Detection state
     Vad = 4,
+    //  Automatic Gain Control level
     AgcLevel = 6,
+    //  Reverberation removal state
     Dereverb = 8,
+    //  Reverberation removal (Does not work)
     DereverbLevel = 10,
+    //  Reverberation removal decay (Does not work)
     DereverbDecay = 12,
+    // Set probability required for the VAD to go from silence to voice
     ProbStart = 14,
+    // Set probability required for the VAD to stay in the voice state (integer percent)
     ProbContinue = 16,
+    // Set maximum attenuation of the noise in dB (negative number)
     NoiseSuppress = 18,
+    // Set maximum attenuation of the residual echo in dB (negative number)
     EchoSuppress = 20,
+    // Set maximum attenuation of the residual echo in dB when near end is active (negative number)
     EchoSuppressActive = 22,
+    // Set the corresponding echo canceller state so that residual echo suppression can be performed (NULL for no residual echo suppression)
     EchoState = 24,
+    // Set maximal gain increase in dB/second (int32)
     AgcIncrement = 26,
+    // Set maximal gain decrease in dB/second (int32)
     AgcDecrement = 28,
+    // Set maximal gain in dB (int32)
     AgcMaxGain = 30,
-    AgcTarget = 46,
+    // Set preprocessor Automatic Gain Control level (int32)
+    AgcTarget = 47,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -53,12 +70,19 @@ pub enum GetControll {
     AgcIncrement = 27,
     AgcDecrement = 29,
     AgcMaxGain = 31,
+    // Get loudness
     AgcLoudness = 33,
+    // Get current gain (int32 percent)
     AgcGain = 35,
+    // Get spectrum size for power spectrum (int32)
     PsdSize = 37,
+    // Get power spectrum (int32[] of squared values)
     Psd = 39,
+    // Get spectrum size for noise estimate (int32)
     NoisePsdSize = 41,
+    // Get noise estimate (int32[] of squared values)
     NoisePsd = 43,
+    // Get speech probability in last frame (int32).
     Prob = 45,
     AgcTarget = 47,
 }
