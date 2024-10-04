@@ -124,9 +124,10 @@ impl App for TimeGrapherUi {
                                                                 rawdata: Arc::clone(&self.rawdata),
                                                                 data: Arc::clone(&self.data),
                                                                 duration: self.audio_settings.sample_size.get_value().clone(),
-                                                                gain: self.audio_settings.gain.get_value().clone(),
-                                                                cutoff: self.audio_settings.cutoff.get_value().clone(),
-                                                                romeve_mean: self.audio_settings.use_mean_subtraction.get_value().clone()
+                                                                use_denoiser: if *self.audio_settings.use_denoiser.get_value() { 1.into() } else { 0.into() },
+                                                                noise_supr_level: self.audio_settings.noise_supr_level.get_value().clone(),
+                                                                use_agc: if *self.audio_settings.use_agc.get_value() { 1.into() } else { 0.into() },
+                                                                agc_level: self.audio_settings.agc_level.get_value().clone(),
                                                             }
                                                         );      
                                                     }
@@ -274,51 +275,60 @@ impl App for TimeGrapherUi {
             self.process_error.close();
         }
 
-        // Settings
-        let mut samplentext = format!("{:.2}", self.audio_settings.sample_size.get_value());
-        let mut gaintext = format!("{:.2}", self.audio_settings.gain.get_value());
-        let mut cutofftext = format!("{:.5}", self.audio_settings.cutoff.get_value());
-        let mut use_mean_sub = self.audio_settings.use_mean_subtraction.get_value().clone();
+        // Audio settings section
+        let mut samplen_text = format!("{:.2}", self.audio_settings.sample_size.get_value());
+        let mut use_denoiser  = self.audio_settings.use_denoiser.get_value().clone();
+        let mut noise_supr_level_text  = format!("{:}", self.audio_settings.noise_supr_level.get_value());
+        let mut use_agc = self.audio_settings.use_agc.get_value().clone();
+        let mut agc_level_text = format!("{:}", self.audio_settings.agc_level.get_value());
+        let mut is_open = self.audio_settings.is_open_mut();
+
         egui::Window::new("Audio Settings")
-            .open(&mut self.audio_settings.is_open_mut())
+            .open(&mut is_open)
             .show(ctx, |ui| {
                 ui.columns(2, |clo_ui| {
                     clo_ui[0].vertical(|ui| {
                         ui.label("Sample duration:");
                         ui.add_space(3.0);
-                        ui.label("Gain:");
+                        ui.label("Use denoiser:");
                         ui.add_space(3.0);
-                        ui.label("Signal cutoff");
+                        ui.label("Noise suppression level");
                         ui.add_space(3.0);
-                        ui.label("Use mean subtraction")
+                        ui.label("Use Auto.Gain.Contr.");
+                        ui.add_space(3.0);
+                        ui.label("A.G.C. level");
                     });
 
                     clo_ui[1].vertical(|ui| {
                         ui.add(
-                            egui::TextEdit::singleline(&mut samplentext)
+                            egui::TextEdit::singleline(&mut samplen_text)
                                 .hint_text("Simetric limit On Y axis")
                                 .desired_width(50.0),
                         );
+                        ui.add(egui::Checkbox::new(&mut use_denoiser, ""));
                         ui.add(
-                            egui::TextEdit::singleline(&mut gaintext)
+                            egui::TextEdit::singleline(&mut noise_supr_level_text)
                                 .hint_text("Input gain")
                                 .desired_width(50.0),
                         );
+                        ui.add(egui::Checkbox::new(&mut use_agc, ""));
                         ui.add(
-                            egui::TextEdit::singleline(&mut cutofftext)
+                            egui::TextEdit::singleline(&mut agc_level_text)
                                 .hint_text("Signal cutoff")
                                 .desired_width(50.0),
                         );
-                        ui.add(egui::Checkbox::new(&mut use_mean_sub, ""));
                     });
                 });
             });
 
-        self.audio_settings.sample_size.parse(samplentext);
-        self.audio_settings.gain.parse(gaintext);
-        self.audio_settings.cutoff.parse(cutofftext);
+        self.audio_settings.sample_size.parse(samplen_text);
+        self.audio_settings.use_denoiser.update_value(use_denoiser);
+        self.audio_settings.noise_supr_level.parse(noise_supr_level_text);
+        self.audio_settings.use_agc.update_value(use_agc);
+        self.audio_settings.agc_level.parse(agc_level_text);
+    
 
-
+        // Plot settings section
         let mut ytext = format!("{:.2}", self.plot_settings.y_limit.get_value());
         egui::Window::new("Plot Settings")
             .open(&mut self.plot_settings.is_open_mut())

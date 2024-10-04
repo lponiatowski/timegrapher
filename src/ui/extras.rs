@@ -4,9 +4,10 @@ use crate::ui::defs::*;
 pub struct AudioSettings {
     is_open: bool,
     pub sample_size:  Setting<f64>,
-    pub gain: Setting<f64>,
-    pub use_mean_subtraction: Setting<bool>,
-    pub cutoff: Setting<f64>,
+    pub use_denoiser: Setting<bool>,
+    pub noise_supr_level: Setting<i32>,
+    pub use_agc: Setting<bool>,
+    pub agc_level: Setting<i32>,
 }
 
 impl Default for AudioSettings {
@@ -14,9 +15,10 @@ impl Default for AudioSettings {
         Self {
             is_open: false,
             sample_size: Setting::new(5.0),
-            gain: Setting::new(10.0),
-            use_mean_subtraction: Setting::new(false),
-            cutoff: Setting::new(0.02),
+            use_denoiser: Setting::new(true),
+            noise_supr_level: Setting::new(8000),
+            use_agc: Setting::new(true),
+            agc_level: Setting::new(16000),
         }
     }
 }

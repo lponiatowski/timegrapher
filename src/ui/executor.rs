@@ -9,9 +9,10 @@ pub struct ExecutorCTL {
     pub rawdata: Arc<Mutex<AudioTrack>>,
     pub data: Arc<Mutex<AudioTrack>>,
     pub duration: f64,
-    pub gain: f64,
-    pub cutoff: f64,
-    pub romeve_mean: bool,
+    pub use_denoiser: i32,
+    pub noise_supr_level: i32,
+    pub use_agc: i32, 
+    pub agc_level: i32,
 }
 
 pub fn spawn_executor(aust: AudioStream, ctl: ExecutorCTL) -> Option<JoinHandle<()>> {
@@ -27,24 +28,15 @@ pub fn spawn_executor(aust: AudioStream, ctl: ExecutorCTL) -> Option<JoinHandle<
     
             let mut rawdata = ctl.rawdata.lock().await;
             *rawdata = track.clone();
-    
-            // track = utils::apply_gain(track, ctl.gain);
-            // if ctl.romeve_mean {
-            //     track = utils::remove_mean(track);
-            // }
-            // // track = utils::apply_diff(track);
-            // // track = utils::sliding_mean(track, 100);
-            // track = utils::sliding_max(track, 300);
-            // track = utils::cutt_off( track, ctl.cutoff);
-            // track = utils::abs(track);
+
             let frame: Vec<f32> = track.get_volume().iter().map(|&v| v as f32).collect();
             let processed_frame = tokio::task::spawn_blocking(move || {
                 // Create the Denoiser and process the frame inside the blocking task
                 let speex = speexdsp::Denoiser::new(frame_size as i32, sampling_rate as i32)
-                    .set_ctl(speexdsp::SetControll::Denoise, 1)
-                    .set_ctl(speexdsp::SetControll::NoiseSuppress, 16000)
-                    .set_ctl(speexdsp::SetControll::Agc, 1)
-                    .set_ctl(speexdsp::SetControll::AgcLevel, 8000);
+                    .set_ctl(speexdsp::SetControll::Denoise, ctl.use_denoiser)
+                    .set_ctl(speexdsp::SetControll::NoiseSuppress, ctl.noise_supr_level)
+                    .set_ctl(speexdsp::SetControll::Agc, ctl.use_agc)
+                    .set_ctl(speexdsp::SetControll::AgcLevel, ctl.agc_level);
                 
                 let mut frame = frame; // mutable frame
                 speex.process(&mut frame);
