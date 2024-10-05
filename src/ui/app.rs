@@ -8,6 +8,7 @@ use crate::ui::executor::{spawn_executor, ExecutorCTL};
 use eframe::egui::{emath::Vec2b, Align, ComboBox, Layout, Style, Visuals};
 use eframe::{egui, App};
 use egui_plot::{Line, Plot, PlotBounds, PlotPoints};
+use log::{info, warn, error};
 use std::sync::Arc;
 use tokio::{sync::Mutex, task::JoinHandle};
 
@@ -109,7 +110,7 @@ impl App for TimeGrapherUi {
                                     // start process if not present
                                     if self.audio_taskhanle.is_none() {
                                         // here goes the code that creates stream and every
-                                        println!(
+                                        info!(
                                             "Creating audio stream on device {:}:{:}",
                                             &self.host, &self.device
                                         );
@@ -128,10 +129,12 @@ impl App for TimeGrapherUi {
                                                                 noise_supr_level: self.audio_settings.noise_supr_level.get_value().clone(),
                                                                 use_agc: if *self.audio_settings.use_agc.get_value() { 1.into() } else { 0.into() },
                                                                 agc_level: self.audio_settings.agc_level.get_value().clone(),
+                                                                cutoff: self.audio_settings.cutoff.get_value().to_owned(),
                                                             }
                                                         );      
                                                     }
                                                     Err(e) => {
+                                                        error!("Error While building stream: {:}", e);
                                                         self.process_error.rais(format!(
                                                             "Error While building stream: {:}",
                                                             e
@@ -141,6 +144,7 @@ impl App for TimeGrapherUi {
                                             }
                                             Err(e) => {
                                                 // rais error
+                                                error!("Error While building stream: {:}", e);
                                                 self.process_error.rais(format!(
                                                     "Error While building stream: {:}",
                                                     e
@@ -157,6 +161,7 @@ impl App for TimeGrapherUi {
                                     self.start_btn = true;
                                     self.clear_btn = true;
                                     if let Some(task) = &self.audio_taskhanle {
+                                        info!("Dropping stream");
                                         task.abort();
                                         self.audio_taskhanle = None;
                                     }
@@ -281,6 +286,7 @@ impl App for TimeGrapherUi {
         let mut noise_supr_level_text  = format!("{:}", self.audio_settings.noise_supr_level.get_value());
         let mut use_agc = self.audio_settings.use_agc.get_value().clone();
         let mut agc_level_text = format!("{:}", self.audio_settings.agc_level.get_value());
+        let mut cutoff_text = format!("{:.2}", self.audio_settings.cutoff.get_value());
         let mut is_open = self.audio_settings.is_open_mut();
 
         egui::Window::new("Audio Settings")
@@ -297,24 +303,31 @@ impl App for TimeGrapherUi {
                         ui.label("Use Auto.Gain.Contr.");
                         ui.add_space(3.0);
                         ui.label("A.G.C. level");
+                        ui.add_space(3.0);
+                        ui.label("Cutoff");
                     });
 
                     clo_ui[1].vertical(|ui| {
                         ui.add(
                             egui::TextEdit::singleline(&mut samplen_text)
-                                .hint_text("Simetric limit On Y axis")
+                                .hint_text("Sample duration")
                                 .desired_width(50.0),
                         );
                         ui.add(egui::Checkbox::new(&mut use_denoiser, ""));
                         ui.add(
                             egui::TextEdit::singleline(&mut noise_supr_level_text)
-                                .hint_text("Input gain")
+                                .hint_text("Denoiser level in 100*dB")
                                 .desired_width(50.0),
                         );
                         ui.add(egui::Checkbox::new(&mut use_agc, ""));
                         ui.add(
                             egui::TextEdit::singleline(&mut agc_level_text)
-                                .hint_text("Signal cutoff")
+                                .hint_text("AGC level in 100*dB")
+                                .desired_width(50.0),
+                        );
+                        ui.add(
+                            egui::TextEdit::singleline(&mut cutoff_text)
+                                .hint_text("Use direct cutoff in dB")
                                 .desired_width(50.0),
                         );
                     });
@@ -326,6 +339,7 @@ impl App for TimeGrapherUi {
         self.audio_settings.noise_supr_level.parse(noise_supr_level_text);
         self.audio_settings.use_agc.update_value(use_agc);
         self.audio_settings.agc_level.parse(agc_level_text);
+        self.audio_settings.cutoff.parse(cutoff_text);
     
 
         // Plot settings section

@@ -1,9 +1,9 @@
 use crate::audio::io::AudioStream;
 use crate::audio::track::AudioTrack;
 use crate::signal::speexdsp;
-use crate::signal::utils;
 use std::sync::Arc;
-use tokio::{spawn, sync::Mutex, task::JoinHandle};
+use tokio::{signal, spawn, sync::Mutex, task::JoinHandle};
+use crate::signal::utils;
 
 pub struct ExecutorCTL {
     pub rawdata: Arc<Mutex<AudioTrack>>,
@@ -13,10 +13,10 @@ pub struct ExecutorCTL {
     pub noise_supr_level: i32,
     pub use_agc: i32, 
     pub agc_level: i32,
+    pub cutoff: f64,
 }
 
 pub fn spawn_executor(aust: AudioStream, ctl: ExecutorCTL) -> Option<JoinHandle<()>> {
-    println!("Sampling initiated");
     // calclulate framesize
     let sampling_rate = aust.samplerate();
     let frame_size: f64 = ctl.duration * sampling_rate;
@@ -46,6 +46,8 @@ pub fn spawn_executor(aust: AudioStream, ctl: ExecutorCTL) -> Option<JoinHandle<
             .unwrap();
     
             track.update_volume(processed_frame);
+
+            track = utils::cutt_off(track, ctl.cutoff);
 
             let mut data = ctl.data.lock().await;
             *data = track;
