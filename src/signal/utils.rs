@@ -1,4 +1,5 @@
 use crate::audio::track::AudioTrack;
+use log::info;
 
 pub fn apply_gain(track: AudioTrack, gain: f64) -> AudioTrack {
     let rate: f64 = track.get_sample_rate();
@@ -69,6 +70,8 @@ pub fn cutt_off(track: AudioTrack, cutoff: f64) -> AudioTrack {
     let rate = track.get_sample_rate();
     let time = track.get_time().to_owned();
     let vol = track.get_volume().to_owned();
+
+    let cutoff: f64 = 10.0_f64.powf(cutoff / 20.0);
 
     let vol = vol
         .iter()
