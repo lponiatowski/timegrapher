@@ -47,7 +47,7 @@ pub fn spawn_executor(aust: AudioStream, ctl: ExecutorCTL) -> Option<JoinHandle<
     
             track.update_volume(processed_frame);
 
-            track = utils::cutt_off(track, ctl.cutoff);
+            track = utils::cutt_off(&track, ctl.cutoff);
 
             let mut data = ctl.data.lock().await;
             *data = track;
