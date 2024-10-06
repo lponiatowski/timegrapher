@@ -249,9 +249,9 @@ impl App for TimeGrapherUi {
                             ui.add_space(20.);
 
                             // transforme data into line
-                            let data = vec![(1.,1.),(2.,2.),(3.,3.)];
+                            let data = self.last_data.to_owned();
                             let points: PlotPoints =
-                                data.iter().map(|&(t, v)| [t, v]).collect();
+                                data.track.iter().map(|&(t, v)| [t, v]).collect();
                             let line = Line::new(points);
                             Plot::new("Timegrapher")
                                 .view_aspect(3.0)

@@ -1,8 +1,8 @@
 use crate::audio::io::AudioStream;
 use crate::audio::track::AudioTrack;
-use crate::signal::speexdsp;
+use crate::signal::{speexdsp, calculator};
 use std::sync::Arc;
-use tokio::{signal, spawn, sync::Mutex, task::JoinHandle};
+use tokio::{spawn, sync::Mutex, task::JoinHandle};
 use crate::signal::utils;
 
 pub struct ExecutorCTL {
@@ -46,6 +46,8 @@ pub fn spawn_executor(aust: AudioStream, ctl: ExecutorCTL) -> Option<JoinHandle<
             .unwrap();
     
             track.update_volume(processed_frame);
+
+            track = calculator::BitCalculator::new(track).run_calculator();
 
             track = utils::cutt_off(&track, ctl.cutoff);
 

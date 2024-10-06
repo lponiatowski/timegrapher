@@ -1,6 +1,20 @@
 use crate::audio::track::AudioTrack;
 use log::info;
 
+
+pub fn get_mean(track: &AudioTrack) -> f64 {
+    let vol = track.get_volume();
+    let len = vol.len() as f64;
+    vol.iter().sum::<f64>() / len
+}
+
+pub fn get_min_max(track: &AudioTrack) -> (f64, f64) {
+    let vol = track.get_volume();
+    let max = vol.iter().max_by(|a, b| a.total_cmp(&b)).unwrap_or(&&0.0);
+    let min = vol.iter().max_by(|a, b| b.total_cmp(&a)).unwrap_or(&&0.0);
+    (*min, *max)
+}
+
 pub fn apply_gain(track: &AudioTrack, gain: f64) -> AudioTrack {
     let rate: f64 = track.get_sample_rate();
     let time: Vec<f64> = track.get_time().to_owned();
