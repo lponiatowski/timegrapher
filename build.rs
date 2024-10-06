@@ -1,6 +1,9 @@
+use pkg_config;
+
 fn main() {
-    // Specify the path to the SpeexDSP library /Users/luka/system/homebrew/Cellar/speexdsp/1.2.1/lib
-    println!("cargo:rustc-link-search=native=/Users/luka/system/homebrew/Cellar/speexdsp/1.2.1/lib");
-    println!("cargo:rustc-link-lib=dylib=speexdsp");
-    println!("cargo:rustc-env=LD_LIBRARY_PATH=/Users/luka/system/homebrew/Cellar/speexdsp/1.2.1/lib");
+    // Use pkg-config to find and link speexdsp
+    pkg_config::Config::new()
+        .atleast_version("1.2.1")
+        .probe("speexdsp")
+        .expect("Could not find speexdsp using pkg-config");
 }
