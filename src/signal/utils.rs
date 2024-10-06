@@ -1,7 +1,7 @@
 use crate::audio::track::AudioTrack;
 use log::info;
 
-pub fn apply_gain(track: AudioTrack, gain: f64) -> AudioTrack {
+pub fn apply_gain(track: &AudioTrack, gain: f64) -> AudioTrack {
     let rate: f64 = track.get_sample_rate();
     let time: Vec<f64> = track.get_time().to_owned();
     let vol: Vec<f64> = track.get_volume().to_owned();
@@ -16,7 +16,7 @@ pub fn apply_gain(track: AudioTrack, gain: f64) -> AudioTrack {
     AudioTrack::from_rate_track(rate, track)
 }
 
-pub fn remove_mean(track: AudioTrack) -> AudioTrack {
+pub fn remove_mean(track: &AudioTrack) -> AudioTrack {
     let rate: f64 = track.get_sample_rate();
     let time: Vec<f64> = track.get_time().to_owned();
     let vol: Vec<f64> = track.get_volume().to_owned();
@@ -66,7 +66,7 @@ pub fn remove_mean(track: AudioTrack) -> AudioTrack {
     AudioTrack::from_rate_track(rate, track)
 }
 
-pub fn cutt_off(track: AudioTrack, cutoff: f64) -> AudioTrack {
+pub fn cutt_off(track: &AudioTrack, cutoff: f64) -> AudioTrack {
     let rate = track.get_sample_rate();
     let time = track.get_time().to_owned();
     let vol = track.get_volume().to_owned();
@@ -86,7 +86,7 @@ pub fn cutt_off(track: AudioTrack, cutoff: f64) -> AudioTrack {
     AudioTrack::from_rate_track(rate, track)
 }
 
-pub fn sliding_max(track: AudioTrack, window: usize) -> AudioTrack {
+pub fn sliding_max(track: &AudioTrack, window: usize) -> AudioTrack {
     let rate = track.get_sample_rate();
     let time = track.get_time().to_owned();
     let mut vol = track.get_volume().to_owned();
@@ -114,7 +114,7 @@ pub fn sliding_max(track: AudioTrack, window: usize) -> AudioTrack {
     AudioTrack::from_rate_track(rate, track)
 }
 
-pub fn sliding_mean(track: AudioTrack, window: usize) -> AudioTrack {
+pub fn sliding_mean(track: &AudioTrack, window: usize) -> AudioTrack {
     let rate = track.get_sample_rate();
     let time = track.get_time().to_owned();
     let mut vol = track.get_volume().to_owned();
@@ -142,7 +142,7 @@ pub fn sliding_mean(track: AudioTrack, window: usize) -> AudioTrack {
     AudioTrack::from_rate_track(rate, track)
 }
 
-pub fn apply_diff(track: AudioTrack) -> AudioTrack {
+pub fn apply_diff(track: &AudioTrack) -> AudioTrack {
     let rate = track.get_sample_rate();
     let time = track.get_time().to_owned();
     let vol = track.get_volume().to_owned();
@@ -166,7 +166,7 @@ pub fn apply_diff(track: AudioTrack) -> AudioTrack {
     AudioTrack::from_rate_track(rate, track)
 }
 
-pub fn abs(track: AudioTrack) -> AudioTrack {
+pub fn abs(track: &AudioTrack) -> AudioTrack {
     let rate = track.get_sample_rate();
     let time = track.get_time().to_owned();
     let mut vol = track.get_volume().to_owned();
