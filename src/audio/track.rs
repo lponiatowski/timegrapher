@@ -38,6 +38,12 @@ impl AudioTrack{
         self.samplerate
     }
 
+    pub fn get_track(&self) -> Vec<(f64, f64)>{
+        let t = self.get_time();
+        let v = self.get_volume();
+        t.iter().cloned().zip(v.iter().cloned()).collect::<Vec<(f64,f64)>>()
+    }
+
     pub fn from_rate_track(samplerate: f64, track: Vec<(f64, f64)>) -> Self {
         AudioTrack{
             samplerate,
